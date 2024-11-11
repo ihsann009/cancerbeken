@@ -1,6 +1,7 @@
 const tf = require('@tensorflow/tfjs-node');
 const { storeData, getData } = require('./dbService');
 const { InputError } = require('../utils/errorHandler');
+const { v4: uuidv4 } = require('uuid');
 
 let model;
 
@@ -15,7 +16,19 @@ async function postPredictHandler(request, h) {
         const { image } = request.payload;
         if (!image) throw new InputError('No image provided.');
 
-        // Konversi stream `image` ke Buffer
+        // Check if image size exceeds 1 MB (1,000,000 bytes)
+        const MAX_SIZE = 1000000; // 1 MB in bytes
+        const contentLength = request.headers['content-length'];
+        
+        if (contentLength && parseInt(contentLength) > MAX_SIZE) {
+            return h.response({
+                statusCode: 413,
+                error: "Request Entity Too Large",
+                message: "Payload content length greater than maximum allowed: ${MAX_SIZE}"
+            }).code(413);
+        }
+
+        // Convert image stream to Buffer
         const imageBuffer = await new Promise((resolve, reject) => {
             const chunks = [];
             image.on('data', chunk => chunks.push(chunk));
@@ -23,25 +36,48 @@ async function postPredictHandler(request, h) {
             image.on('error', reject);
         });
 
-        // Decode buffer dan ubah menjadi tensor
+        // Decode buffer and convert it to tensor
         const tensor = tf.node.decodeImage(imageBuffer, 3)
             .resizeNearestNeighbor([224, 224])
             .expandDims()
             .toFloat();
 
-        // Prediksi menggunakan model
+        // Make prediction using the model
         const prediction = model.predict(tensor);
         const score = prediction.dataSync()[0];
+        
+        // Check if prediction is valid
         const label = score > 0.5 ? 'Cancer' : 'Non-cancer';
-        const suggestion = label === 'Cancer' ? 'Check with a doctor!' : 'No cancer detected.';
+        
+        // If the prediction does not result in a valid label
+        if (label !== 'Cancer' && label !== 'Non-cancer') {
+            return h.response({
+                status: 'fail',
+                message: 'Terjadi kesalahan dalam melakukan prediksi'
+            }).code(400);
+        }
 
-        const result = { label, suggestion, confidence: score };
+        // Prepare the result for storage and response
+        const suggestion = label === 'Cancer' ? 'Segera periksa ke dokter!' : 'Penyakit kanker tidak terdeteksi.';
+        const result = {
+            id: uuidv4(),
+            result: label,
+            suggestion,
+            createdAt: new Date().toISOString(),
+        };
+
+        // Store result in Firestore
         await storeData(result);
 
-        return h.response({ status: 'success', data: result }).code(201);
+        // Return response in desired format
+        return h.response({
+            status: 'success',
+            message: 'Model is predicted successfully',
+            data: result,
+        }).code(201);
     } catch (error) {
         console.error(error);
-        return h.response({ status: 'fail', message: error.message }).code(400);
+        return h.response({ status: 'fail', message: 'Terjadi kesalahan dalam melakukan prediksi' }).code(400);
     }
 }
 
@@ -53,3 +89,5 @@ async function getHistoryHandler(request, h) {
 }
 
 module.exports = { postPredictHandler, getHistoryHandler, loadModel };
+
+
