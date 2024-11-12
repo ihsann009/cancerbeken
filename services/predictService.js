@@ -6,8 +6,10 @@ const { v4: uuidv4 } = require('uuid');
 let model;
 
 async function loadModel() {
-    const modelPath = process.env.MODEL_URL || 'file://model/model.json';
-    model = await tf.loadGraphModel(modelPath);
+    if (!model) {
+        const modelPath = process.env.MODEL_URL || 'file://model/model.json';
+        model = await tf.loadGraphModel(modelPath);
+    }
     return model;
 }
 
@@ -16,15 +18,15 @@ async function postPredictHandler(request, h) {
         const { image } = request.payload;
         if (!image) throw new InputError('No image provided.');
 
-        // Check if image size exceeds 1 MB (1,000,000 bytes)
-        const MAX_SIZE = 1000000; // 1 MB in bytes
+        // Hardcode maximum payload size to 1 MB (1000000 bytes)
+        const MAX_SIZE = 1000000;
         const contentLength = request.headers['content-length'];
         
         if (contentLength && parseInt(contentLength) > MAX_SIZE) {
             return h.response({
                 statusCode: 413,
                 error: "Request Entity Too Large",
-                message: "Payload content length greater than maximum allowed: ${MAX_SIZE}"
+                message: "Payload content length greater than maximum allowed: 1000000"
             }).code(413);
         }
 
@@ -42,23 +44,30 @@ async function postPredictHandler(request, h) {
             .expandDims()
             .toFloat();
 
+        // Load the model if not loaded
+        await loadModel();
+
         // Make prediction using the model
         const prediction = model.predict(tensor);
         const score = prediction.dataSync()[0];
-        
-        // Check if prediction is valid
-        const label = score > 0.5 ? 'Cancer' : 'Non-cancer';
-        
-        // If the prediction does not result in a valid label
-        if (label !== 'Cancer' && label !== 'Non-cancer') {
+
+        // Set strict threshold for ambiguous predictions
+        const STRICT_THRESHOLD_LOW = 0.1;
+        const STRICT_THRESHOLD_HIGH = 0.9;
+
+        // If the prediction score falls within the ambiguous range
+        if (score >= STRICT_THRESHOLD_LOW && score <= STRICT_THRESHOLD_HIGH) {
             return h.response({
-                status: 'fail',
-                message: 'Terjadi kesalahan dalam melakukan prediksi'
+                status: "fail",
+                message: "Terjadi kesalahan dalam melakukan prediksi"
             }).code(400);
         }
 
-        // Prepare the result for storage and response
+        // Determine the label based on the score
+        const label = score > 0.9 ? 'Cancer' : 'Non-cancer';
         const suggestion = label === 'Cancer' ? 'Segera periksa ke dokter!' : 'Penyakit kanker tidak terdeteksi.';
+
+        // Prepare the result for storage and response
         const result = {
             id: uuidv4(),
             result: label,
@@ -75,6 +84,7 @@ async function postPredictHandler(request, h) {
             message: 'Model is predicted successfully',
             data: result,
         }).code(201);
+        
     } catch (error) {
         console.error(error);
         return h.response({ status: 'fail', message: 'Terjadi kesalahan dalam melakukan prediksi' }).code(400);
@@ -89,5 +99,3 @@ async function getHistoryHandler(request, h) {
 }
 
 module.exports = { postPredictHandler, getHistoryHandler, loadModel };
-
-

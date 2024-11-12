@@ -11,4 +11,6 @@ async function getData(id) {
     return doc.exists ? doc.data() : null;
 }
 
+
+
 module.exports = { storeData, getData };

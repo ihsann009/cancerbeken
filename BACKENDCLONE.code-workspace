@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "../BACKENDCLONE"
+		},
+		{
+			"path": "../cancer-analizza"
+		},
+		{
+			"path": "../Deploy-cancer"
+		},
+		{
+			"path": "../NAZARTHANKS"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "profiless"
+	}
+}

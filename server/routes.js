@@ -6,12 +6,12 @@ module.exports = [
         path: '/predict',
         handler: postPredictHandler,
         options: {
-            payload: { output: 'stream', parse: true, allow: 'multipart/form-data',multipart: true },
+            payload: { maxBytes: 10485760, output: 'stream', parse: true, allow: 'multipart/form-data',multipart: true },
         },
     },
     {
         method: 'GET',
-        path: '/history/{id}',
+        path: '/predict/histories',
         handler: getHistoryHandler,
     },
 ];
