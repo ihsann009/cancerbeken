@@ -1,5 +1,5 @@
 const tf = require('@tensorflow/tfjs-node');
-const { storeData, getData } = require('./dbService');
+const { storeData, getData,getAllData } = require('./dbService');
 const { InputError } = require('../utils/errorHandler');
 const { v4: uuidv4 } = require('uuid');
 
@@ -98,4 +98,22 @@ async function getHistoryHandler(request, h) {
     return h.response({ status: 'success', data }).code(200);
 }
 
-module.exports = { postPredictHandler, getHistoryHandler, loadModel };
+async function getAllHistoriesHandler(request, h) {
+    try {
+        const data = await getAllData();
+
+        // Check if data was found
+        if (!data || data.length === 0) {
+            return h.response({ status: 'fail', message: 'No data found' }).code(404);
+        }
+
+        // Return success response with all data
+        return h.response({ status: 'success', data }).code(200);
+    } catch (error) {
+        console.error(error);
+        return h.response({ status: 'fail', message: 'Terjadi kesalahan saat mengambil data' }).code(500);
+    }
+}
+
+
+module.exports = { postPredictHandler, getHistoryHandler,getAllHistoriesHandler, loadModel };

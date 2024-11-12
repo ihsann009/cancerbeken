@@ -11,6 +11,19 @@ async function getData(id) {
     return doc.exists ? doc.data() : null;
 }
 
+// Function to get all histories
+async function getAllData() {
+    const snapshot = await db.collection('prediction').get();
+    if (snapshot.empty) {
+        return [];
+    }
 
+    const allData = [];
+    snapshot.forEach(doc => {
+        allData.push({ id: doc.id, ...doc.data() });
+    });
 
-module.exports = { storeData, getData };
+    return allData;
+}
+
+module.exports = { storeData, getData, getAllData };

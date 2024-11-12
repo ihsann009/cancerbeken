@@ -1,4 +1,4 @@
-const { postPredictHandler, getHistoryHandler } = require('../services/predictService');
+const { postPredictHandler, getHistoryHandler,getAllHistoriesHandler } = require('../services/predictService');
 
 module.exports = [
     {
@@ -11,7 +11,12 @@ module.exports = [
     },
     {
         method: 'GET',
-        path: '/predict/histories',
+        path: '/predict/histories/{id}',
         handler: getHistoryHandler,
     },
+    {
+        method: 'GET',
+        path: '/predict/histories',
+        handler: getAllHistoriesHandler
+    }
 ];
